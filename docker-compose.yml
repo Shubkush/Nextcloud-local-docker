@@ -1,0 +1,67 @@
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: always
+    ports:
+      - 8080:80
+    volumes:
+      - ./nextcloud:/var/www/html
+      - ${MEDIA_1}:/mnt/nextcloud_data/media_1:rw     # Mount your exFAT drive as local storage
+      - ${MEDIA_2}:/mnt/nextcloud_data/media_2:rw     # Mount your exFAT drive as local storage
+      - ${MEDIA_3}:/mnt/nextcloud_data/media_3:rw    # Mount your exFAT drive as local storage
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: mariadb
+    container_name: nextcloud_db
+    restart: always
+    volumes:
+      - ./db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+
+  redis:
+    image: redis:alpine
+    container_name: nextcloud_redis
+    restart: always
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    
+
+  nginx:
+    image: nginx
+    container_name: nginx
+    restart: always
+    environment:
+      - SSL_CERT_PATH=${SSL_CERT_PATH}
+      - SSL_CERT_KEY_PATH=${SSL_CERT_KEY_PATH}
+    ports:
+      - "${NGINX_PORT_HTTP}:80"
+      - "${NGINX_PORT_HTTPS}:443"
+    volumes:
+      - ./nginx.conf/nginx.conf.template:/etc/nginx/nginx.conf.template 
+      - ./certs:/etc/nginx/certs  # Mount the certs directory with your self-signed certificates
+    # command: /bin/sh -c "envsubst < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    depends_on:
+      - nextcloud
+
+volumes:
+  nextcloud:
+    driver: local
+  db:
+    driver: local
